@@ -8,8 +8,12 @@ internal static class Program
     {
         _ = BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
+
     public static AppBuilder BuildAvaloniaApp()
     {
-        return AppBuilder.Configure<App>().UsePlatformDetect().WithInterFont().LogToTrace();
+        return AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .WithInterFont()
+            .LogToTrace();
     }
 }

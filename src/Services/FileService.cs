@@ -2,11 +2,11 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Newtonsoft.Json;
 using System.Diagnostics.CodeAnalysis;
-namespace ARM9Editor;
+namespace ARM9Editor.Services;
 
 public sealed class FileService
 {
-    private const int MinFileSize = 1024 * 1024;
+    private const long MinFileSize = 1024L * 1024L;
     private static readonly FilePickerFileType BinaryFileType = new("Binary files")
     {
         Patterns = new[] { "*.bin" }
@@ -15,6 +15,7 @@ public sealed class FileService
     {
         Patterns = new[] { "*.json" }
     };
+
     public static async Task<(byte[]? Data, string? Path)> OpenFileAsync(Window? owner)
     {
         if (owner?.StorageProvider == null)
@@ -42,13 +43,14 @@ public sealed class FileService
                 ? throw new InvalidDataException("File is empty.")
                 : data.Length < MinFileSize
                 ? throw new InvalidDataException($"File is too small. Expected at least {MinFileSize / 1024}KB.")
-                : ((byte[]? Data, string? Path))(data, file.Path.LocalPath);
+                : (data, file.Path.LocalPath);
         }
         catch (Exception ex)
         {
             throw new IOException($"Failed to read file: {ex.Message}", ex);
         }
     }
+
     public static async Task SaveFileAsync(string path, byte[] data)
     {
         if (string.IsNullOrEmpty(path))
@@ -61,13 +63,14 @@ public sealed class FileService
         }
         try
         {
-            await File.WriteAllBytesAsync(path, data);
+            await File.WriteAllBytesAsync(path, data!);
         }
         catch (Exception ex)
         {
             throw new IOException($"Failed to save file: {ex.Message}", ex);
         }
     }
+
     public static async Task<string?> SaveFileAsAsync(Window? owner)
     {
         if (owner?.StorageProvider == null)
@@ -82,6 +85,7 @@ public sealed class FileService
         });
         return file?.Path.LocalPath;
     }
+
     [RequiresUnreferencedCode("Calls Newtonsoft.Json.JsonConvert.SerializeObject")]
     public static async Task<string?> ExportChangesAsync(Window? owner, ChangesExport changes)
     {
@@ -111,6 +115,7 @@ public sealed class FileService
             throw new IOException($"Failed to export changes: {ex.Message}", ex);
         }
     }
+
     [RequiresUnreferencedCode("Calls Newtonsoft.Json.JsonConvert.DeserializeObject")]
     public static async Task<ChangesExport?> ImportChangesAsync(Window? owner)
     {

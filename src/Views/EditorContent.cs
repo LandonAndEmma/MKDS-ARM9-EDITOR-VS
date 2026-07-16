@@ -1,19 +1,31 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
-namespace ARM9Editor;
+using System.Text.RegularExpressions;
+using ARM9Editor.Services;
+namespace ARM9Editor.Views;
 
 public sealed class EditorContent : UserControl
 {
+    private static readonly Regex AllowedCharsRegex = new(@"^[A-Za-z0-9_]+$", RegexOptions.Compiled);
     private readonly EditorTab _tabType;
     private readonly MainWindowViewModel _viewModel;
+
     public EditorContent(EditorTab tabType, MainWindowViewModel viewModel)
     {
         _tabType = tabType;
         _viewModel = viewModel;
         BuildContent();
     }
+
+    public void Refresh()
+    {
+        Content = null;
+        BuildContent();
+    }
+
     private void BuildContent()
     {
         TabConfig config = ConfigurationService.Instance.GetTabConfig(_tabType);
@@ -36,20 +48,21 @@ public sealed class EditorContent : UserControl
         ScrollViewer scroll = new()
         {
             Content = content,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
         Grid.SetRow(scroll, 1);
         mainGrid.Children.Add(scroll);
         Content = mainGrid;
     }
+
     private Grid CreateHeader(string leftLabel, string rightLabel)
     {
         Grid grid = new()
         {
             Height = 40,
             Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(2, GridUnitType.Star) }
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(new GridLength(2, GridUnitType.Star)) }
         };
         TextBlock left = new()
         {
@@ -73,12 +86,13 @@ public sealed class EditorContent : UserControl
         grid.Children.Add(right);
         return grid;
     }
+
     private Border CreateEditorRow(EditorConfig config)
     {
         Grid grid = new()
         {
             MinHeight = 45,
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(2, GridUnitType.Star) }
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(new GridLength(2, GridUnitType.Star)) }
         };
         TextBlock label = new()
         {
@@ -98,6 +112,7 @@ public sealed class EditorContent : UserControl
             BorderBrush = new SolidColorBrush(Color.FromArgb(60, 128, 128, 128))
         };
     }
+
     private Control CreateEditor(EditorConfig config)
     {
         return config.Type switch
@@ -108,6 +123,7 @@ public sealed class EditorContent : UserControl
             _ => new TextBlock { Text = "Unknown type" }
         };
     }
+
     private NumericUpDown CreateByteEditor(EditorConfig config)
     {
         NumericUpDown numeric = new()
@@ -120,15 +136,17 @@ public sealed class EditorContent : UserControl
             FormatString = "0",
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        int offset = config.Offset;
         numeric.ValueChanged += (_, e) =>
         {
             if (e.NewValue.HasValue)
             {
-                _viewModel.Data.SetByte(config.Offset, (byte)e.NewValue.Value);
+                _viewModel.Data.SetByte(offset, (byte)e.NewValue.Value);
             }
         };
         return numeric;
     }
+
     private TextBox CreateVariableStringEditor(EditorConfig config)
     {
         TextBox textBox = new()
@@ -138,30 +156,35 @@ public sealed class EditorContent : UserControl
             VerticalContentAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        int offset = config.Offset;
+        int maxLength = config.MaxLength;
+        string originalText = textBox.Text ?? string.Empty;
         textBox.LostFocus += async (_, _) =>
         {
             string text = textBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(text))
             {
-                _viewModel.Data.SetString(config.Offset, config.MaxLength, string.Empty);
+                _viewModel.Data.SetString(offset, maxLength, string.Empty);
                 return;
             }
-            if (!System.Text.RegularExpressions.Regex.IsMatch(text, @"^[A-Za-z0-9_]+$"))
+            if (!AllowedCharsRegex.IsMatch(text))
             {
                 await DialogService.ShowErrorAsync(_viewModel.Owner, "Only alphanumeric characters and underscores allowed.");
-                textBox.Text = _viewModel.Data.GetString(config.Offset, config.MaxLength);
+                textBox.Text = originalText;
                 return;
             }
-            if (System.Text.Encoding.UTF8.GetByteCount(text) > config.MaxLength)
+            if (text.Length > maxLength)
             {
-                await DialogService.ShowErrorAsync(_viewModel.Owner, $"Maximum length: {config.MaxLength} bytes.");
-                textBox.Text = _viewModel.Data.GetString(config.Offset, config.MaxLength);
+                await DialogService.ShowErrorAsync(_viewModel.Owner, $"Maximum length: {maxLength} characters.");
+                textBox.Text = originalText;
                 return;
             }
-            _viewModel.Data.SetString(config.Offset, config.MaxLength, text);
+            _viewModel.Data.SetString(offset, maxLength, text);
+            originalText = text;
         };
         return textBox;
     }
+
     private TextBox CreateFixedStringEditor(EditorConfig config)
     {
         TextBox textBox = new()
@@ -172,21 +195,25 @@ public sealed class EditorContent : UserControl
             VerticalContentAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        int offset = config.Offset;
+        int maxLength = config.MaxLength;
+        string originalText = textBox.Text ?? string.Empty;
         textBox.LostFocus += async (_, _) =>
         {
             string text = textBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(text))
             {
-                _viewModel.Data.SetString(config.Offset, config.MaxLength, string.Empty);
+                _viewModel.Data.SetString(offset, maxLength, string.Empty);
                 return;
             }
-            if (text.Length != config.MaxLength || !System.Text.RegularExpressions.Regex.IsMatch(text, @"^[A-Za-z0-9_]+$"))
+            if (text.Length != maxLength || !AllowedCharsRegex.IsMatch(text))
             {
-                await DialogService.ShowErrorAsync(_viewModel.Owner, $"Must be exactly {config.MaxLength} alphanumeric characters or underscores.");
-                textBox.Text = _viewModel.Data.GetString(config.Offset, config.MaxLength);
+                await DialogService.ShowErrorAsync(_viewModel.Owner, $"Must be exactly {maxLength} alphanumeric characters or underscores.");
+                textBox.Text = originalText;
                 return;
             }
-            _viewModel.Data.SetString(config.Offset, config.MaxLength, text);
+            _viewModel.Data.SetString(offset, maxLength, text);
+            originalText = text;
         };
         return textBox;
     }

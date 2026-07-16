@@ -1,23 +1,57 @@
+using ARM9Editor.Services;
 using Avalonia.Controls;
-using System.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 namespace ARM9Editor;
 
-public sealed class MainWindowViewModel : INotifyPropertyChanged
+public partial class MainWindowViewModel : ObservableObject
 {
     private const string DefaultTitle = "Mario Kart DS ARM9 Editor";
     private const string RepoUrl = "https://github.com/LandonAndEmma/MKDS-ARM9-Editor";
+
+    [ObservableProperty]
+    private string _status = "Ready";
+
+    [ObservableProperty]
+    private string _title = DefaultTitle;
+
     private string? _filePath;
-    public event PropertyChangedEventHandler? PropertyChanged;
+
     public Window? Owner { get; set; }
-    public Action? OnTabsNeedRefresh { get; set; }
+
+    public IRelayCommand? OpenFileCommand { get; }
+    public IRelayCommand? SaveFileCommand { get; }
+    public IRelayCommand? SaveFileAsCommand { get; }
+    public IRelayCommand? ExportChangesCommand { get; }
+    public IRelayCommand? ImportChangesCommand { get; }
+    public IRelayCommand? ShowInfoCommand { get; }
+    public IRelayCommand? OpenRepositoryCommand { get; }
+
     public ARM9Data Data { get; } = new();
-    public bool IsFileLoaded => Data.IsLoaded;
-    public string Status { get; private set => SetField(ref field, value); } = "Ready";
-    public string Title { get; private set => SetField(ref field, value); } = DefaultTitle;
+    [ObservableProperty]
+    private bool _isFileLoaded;
+
+    public MainWindowViewModel()
+    {
+        OpenFileCommand = new RelayCommand(async () => await OpenFileAsync());
+        SaveFileCommand = new RelayCommand(async () => await SaveFileAsync(), () => IsFileLoaded);
+        SaveFileAsCommand = new RelayCommand(async () => await SaveFileAsAsync(), () => IsFileLoaded);
+        ExportChangesCommand = new RelayCommand(async () => await ExportChangesAsync(), () => IsFileLoaded && Data.HasChanges());
+        ImportChangesCommand = new RelayCommand(async () => await ImportChangesAsync(), () => IsFileLoaded);
+        ShowInfoCommand = new RelayCommand(async () => await ShowInfoAsync());
+        OpenRepositoryCommand = new RelayCommand(async () => await OpenRepositoryAsync());
+        Data.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ARM9Data.IsLoaded))
+            {
+                IsFileLoaded = Data.IsLoaded;
+            }
+        };
+    }
+
     public async Task OpenFileAsync()
     {
         try
@@ -32,13 +66,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             string fileName = Path.GetFileName(_filePath);
             Title = $"{DefaultTitle} - {fileName}";
             Status = $"Loaded: {fileName}";
-            OnPropertyChanged(nameof(IsFileLoaded));
         }
         catch (Exception ex)
         {
             await DialogService.ShowErrorAsync(Owner, ex.Message);
         }
     }
+
     public async Task SaveFileAsync()
     {
         if (!IsFileLoaded)
@@ -62,6 +96,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             await DialogService.ShowErrorAsync(Owner, ex.Message);
         }
     }
+
     public async Task SaveFileAsAsync()
     {
         if (!IsFileLoaded)
@@ -88,7 +123,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             await DialogService.ShowErrorAsync(Owner, ex.Message);
         }
     }
-    [RequiresUnreferencedCode("Calls ARM9Editor.FileService.ExportChangesAsync")]
+
+    [RequiresUnreferencedCode("Calls FileService.ExportChangesAsync")]
     public async Task ExportChangesAsync()
     {
         if (!IsFileLoaded)
@@ -116,7 +152,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             await DialogService.ShowErrorAsync(Owner, ex.Message);
         }
     }
-    [RequiresUnreferencedCode("Calls ARM9Editor.FileService.ImportChangesAsync")]
+
+    [RequiresUnreferencedCode("Calls FileService.ImportChangesAsync")]
     public async Task ImportChangesAsync()
     {
         if (!IsFileLoaded)
@@ -132,7 +169,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
             Data.ImportChanges(changes);
-            OnTabsNeedRefresh?.Invoke();
             Status = $"Imported {changes.Changes.Count} change(s)";
             await DialogService.ShowMessageAsync(Owner, "Success", $"Successfully imported {changes.Changes.Count} change(s).");
         }
@@ -141,11 +177,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             await DialogService.ShowErrorAsync(Owner, ex.Message);
         }
     }
+
     public async Task ShowInfoAsync()
     {
         Assembly assembly = Assembly.GetExecutingAssembly();
         Version? version = assembly.GetName().Version;
-        string versionStr = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "Unknown";
+        string versionStr = version != null
+            ? $"{version.Major}.{version.Minor}.{Math.Max(0, version.Build)}"
+            : "Unknown";
         AssemblyCompanyAttribute? companyAttr = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
         string message = $"Mario Kart DS ARM9 Editor\nVersion: {versionStr}\n\nEdit values in Mario Kart DS ARM9 files.\n\n";
         if (companyAttr != null)
@@ -155,6 +194,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         message += "Special Thanks: Ermelber, Yami, MkDasher";
         await DialogService.ShowMessageAsync(Owner, "Info", message);
     }
+
     public async Task OpenRepositoryAsync()
     {
         try
@@ -169,17 +209,5 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             await DialogService.ShowErrorAsync(Owner, $"Cannot open URL: {ex.Message}");
         }
-    }
-    private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (!Equals(field, value))
-        {
-            field = value;
-            OnPropertyChanged(propertyName);
-        }
-    }
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

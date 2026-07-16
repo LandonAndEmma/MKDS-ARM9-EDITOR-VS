@@ -104,7 +104,6 @@ dotnet publish -c Release -r %RUNTIME% ^
   -p:DebugSymbols=false ^
   -p:StripSymbols=true ^
   -p:IncludeNativeLibrariesForSelfExtract=true ^
-  -p:EnableCompressionInSingleFile=true ^
   -o "%OUTPUT_PATH%" ^
   --nologo ^
   --verbosity minimal
@@ -143,5 +142,5 @@ if %diff_s% lss 0 set /a "diff_s+=60, diff_m-=1"
 if %diff_m% lss 0 set /a "diff_m+=60, diff_h-=1"
 if %diff_h% lss 0 set /a "diff_h+=24"
 
-set "!result!=%diff_h%h %diff_m%m %diff_s%s"
+set "%result%=%diff_h%h %diff_m%m %diff_s%s"
 goto :eof

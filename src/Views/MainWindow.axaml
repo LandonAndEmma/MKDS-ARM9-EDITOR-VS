@@ -1,13 +1,13 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="using:ARM9Editor"
-        x:Class="ARM9Editor.MainWindow"
-        x:DataType="local:MainWindowViewModel"
-        Title="{Binding Title}"
-        Width="1471"
-        Height="640"
-        MinWidth="1471"
-        MinHeight="480">
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:local="using:ARM9Editor"
+          x:Class="ARM9Editor.MainWindow"
+          x:DataType="local:MainWindowViewModel"
+          Title="{Binding Title}"
+          Width="1471"
+          Height="640"
+          MinWidth="1471"
+          MinHeight="480">
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="File">
@@ -32,14 +32,14 @@
                        VerticalAlignment="Center" />
         </Border>
         <Panel>
-            <Border x:Name="WelcomePanel" IsVisible="{Binding !IsFileLoaded}">
+            <Border x:Name="WelcomePanel">
                 <TextBlock Text="Welcome to Mario Kart DS ARM9 Editor.&#x0a;Please open an ARM9.bin file to begin editing."
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            TextAlignment="Center"
                            FontSize="16" />
             </Border>
-            <TabControl x:Name="MainTabControl" IsVisible="{Binding IsFileLoaded}" />
+            <TabControl x:Name="MainTabControl" />
         </Panel>
     </DockPanel>
 </Window>
